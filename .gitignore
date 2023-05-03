@@ -1,3 +1,4 @@
 *.gob.gz
 .idea/
 vendor/
+.DS_Store
