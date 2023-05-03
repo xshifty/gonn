@@ -1,5 +1,7 @@
 package gonn
 
+const ActivationFunctionRelu = "relu"
+
 func relu(x float64) float64 {
 	if x > 0 {
 		return x
@@ -8,7 +10,7 @@ func relu(x float64) float64 {
 	return x / 100
 }
 
-func reluPrime(x float64) float64 {
+func reluDerivative(x float64) float64 {
 	if x > 0 {
 		return 1
 	}

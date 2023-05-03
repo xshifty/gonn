@@ -3,28 +3,33 @@ package main
 import (
 	"fmt"
 	"github.com/xshifty/gonn"
+	"math"
 )
 
 func main() {
-	fmt.Println("GoNN train demo")
+	fmt.Println("GoNN sum-train demo")
 
-	n := gonn.NewNetwork(2, 32, 32, 1)
+	n := gonn.NewNetwork(gonn.ActivationFunctionRelu, 2, 4, 4, 1)
 
 	inputs := [][]float64{
 		{2, 2},
 		{0, 1},
 		{14, 6},
 		{14, 16},
+		{math.Pi, math.E},
+		{47, 32},
 	}
 
 	outputs := [][]float64{
-		{4.0},
-		{1.0},
-		{20.0},
-		{30.0},
+		{4},
+		{1},
+		{20},
+		{30},
+		{math.Pi + math.E},
+		{79},
 	}
 
-	iter := 1000000
+	iter := 10000
 	fmt.Printf("Training for %d iterations", iter)
 
 	for t := 0; t < iter; t++ {
@@ -37,5 +42,5 @@ func main() {
 	}
 	fmt.Println("Done")
 
-	n.Save("checkpoint.gob.gz")
+	n.Save("sum-relu-checkpoint.gob.gz")
 }
