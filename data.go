@@ -16,13 +16,13 @@ type layerData struct {
 	Neurons []neuronData
 }
 type networkData struct {
-	ActivationFunction string
-	Layers             []layerData
+	Options map[int32]interface{}
+	Layers  []layerData
 }
 
 func buildNetworkDto(n *network) *networkData {
 	nd := networkData{
-		ActivationFunction: n.activationFunction,
+		Options: n.options,
 	}
 
 	for i := range n.layers {
@@ -54,8 +54,8 @@ func buildNetworkDto(n *network) *networkData {
 // NewNetworkFromData loads a network from a networkData struct
 func NewNetworkFromData(nd *networkData) *network {
 	n := network{
-		activationFunction: nd.ActivationFunction,
-		layers:             make([]*layer, len(nd.Layers)),
+		options: nd.Options,
+		layers:  make([]*layer, len(nd.Layers)),
 	}
 
 	for i := range nd.Layers {

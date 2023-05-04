@@ -1,6 +1,6 @@
 package gonn
 
-const ActivationFunctionRelu = "relu"
+const ReluFunction = "relu"
 
 func relu(x float64) float64 {
 	if x > 0 {

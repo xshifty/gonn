@@ -2,7 +2,7 @@ package gonn
 
 import "math"
 
-const ActivationFunctionSigmoid = "sigmoid"
+const SigmoidFunction = "sigmoid"
 
 func sigmoid(x float64) float64 {
 	return 1 / (1 + math.Exp(-x))

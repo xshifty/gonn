@@ -9,7 +9,10 @@ import (
 func main() {
 	fmt.Println("GoNN sum-train demo")
 
-	n := gonn.NewNetwork(gonn.ActivationFunctionRelu, 2, 4, 4, 1)
+	n := gonn.NewNetwork(2, 8, 1)
+
+	n.SetOption(gonn.OptionRandomizeBias, false)
+	n.SetOption(gonn.OptionRandomizeWeights, true)
 
 	inputs := [][]float64{
 		{2, 2},
@@ -29,18 +32,9 @@ func main() {
 		{79},
 	}
 
-	iter := 10000
-	fmt.Printf("Training for %d iterations", iter)
-
-	for t := 0; t < iter; t++ {
-		for i := range inputs {
-			n.Train(inputs[i], outputs[i], 0.00001)
-		}
-		if t%int(float32(iter)*0.1) == 0 {
-			fmt.Printf(".")
-		}
-	}
+	epochs := 100000
+	fmt.Printf("Training for %d epochs...", epochs)
+	n.Train(inputs, outputs, epochs, 0.0001)
 	fmt.Println("Done")
-
 	n.Save("sum-relu-checkpoint.gob.gz")
 }

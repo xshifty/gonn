@@ -4,6 +4,7 @@ import (
 	"compress/gzip"
 	"encoding/gob"
 	"log"
+	"math/rand"
 	"os"
 )
 
@@ -28,6 +29,15 @@ func (s *synapse) adjust(factor float64) {
 	s.weight += factor * s.in
 }
 
+func newSynapse(randomize bool) *synapse {
+	w := 1.0
+	if randomize {
+		w = rand.Float64()
+	}
+
+	return &synapse{weight: w}
+}
+
 type neuron struct {
 	synapses []*synapse
 	bias     *synapse
@@ -50,10 +60,10 @@ func (n *neuron) fire(in []float64) float64 {
 }
 
 func (n *neuron) activate(af string) float64 {
-	if af == ActivationFunctionRelu {
+	if af == ReluFunction {
 		n.a = relu(n.z)
 	}
-	if af == ActivationFunctionSigmoid {
+	if af == SigmoidFunction {
 		n.a = sigmoid(n.z)
 	}
 
@@ -74,14 +84,16 @@ func (l *layer) output(af string) []float64 {
 }
 
 type network struct {
-	activationFunction string
-	layers             []*layer
+	options map[int32]interface{}
+	layers  []*layer
 }
 
 type Network interface {
 	Train(in, out []float64, rate float64)
 	Predict(in []float64) []float64
 	Save(path string)
+	SetOption(key int32, value interface{})
+	Option(key int32) interface{}
 }
 
 func (n *network) feedForward(input []float64) []float64 {
@@ -90,36 +102,36 @@ func (n *network) feedForward(input []float64) []float64 {
 		out := make([]float64, len(n.layers[i].neurons))
 		for j := range n.layers[i].neurons {
 			n.layers[i].neurons[j].fire(in)
-			out[j] = n.layers[i].neurons[j].activate(n.activationFunction)
+			out[j] = n.layers[i].neurons[j].activate(n.Option(OptionActivationFunction).(string))
 		}
 		in = out
 	}
 
-	return n.layers[len(n.layers)-1].output(n.activationFunction)
+	return n.layers[len(n.layers)-1].output(n.Option(OptionActivationFunction).(string))
 }
 
-func (n *network) backPropagate(prd, expctd []float64, rate float64) {
-	if len(prd) != len(expctd) {
+func (n *network) backPropagate(predOutput, expectOutput []float64, rate float64) {
+	if len(predOutput) != len(expectOutput) {
 		log.Fatal("Prediction length does not match expected length")
 	}
 
-	errs := make([]float64, len(prd))
-	for i := range prd {
-		errs[i] = expctd[i] - prd[i]
+	errors := make([]float64, len(predOutput))
+	for i := range predOutput {
+		errors[i] = expectOutput[i] - predOutput[i]
 	}
 
-	deltas := make([]float64, len(prd))
-	for i := range prd {
-		if n.activationFunction == ActivationFunctionRelu {
-			deltas[i] = errs[i] * reluDerivative(prd[i])
+	deltas := make([]float64, len(predOutput))
+	for i := range predOutput {
+		if n.Option(OptionActivationFunction).(string) == ReluFunction {
+			deltas[i] = errors[i] * reluDerivative(predOutput[i])
 		}
-		if n.activationFunction == ActivationFunctionSigmoid {
-			deltas[i] = errs[i] * sigmoidDerivative(prd[i])
+		if n.Option(OptionActivationFunction).(string) == SigmoidFunction {
+			deltas[i] = errors[i] * sigmoidDerivative(predOutput[i])
 		}
 	}
 
 	ll := n.layers[len(n.layers)-1]
-	for i := range prd {
+	for i := range predOutput {
 		for j := range ll.neurons[i].synapses {
 			ll.neurons[i].synapses[j].adjust(rate * deltas[i])
 		}
@@ -142,10 +154,14 @@ func (n *network) backPropagate(prd, expctd []float64, rate float64) {
 	}
 }
 
-// Train trains the network with the given input and output
-func (n *network) Train(in, out []float64, rate float64) {
-	p := n.feedForward(in)
-	n.backPropagate(p, out, rate)
+// Train trains the network with the given input and output and other parameters
+func (n *network) Train(in, out [][]float64, epochs int, rate float64) {
+	for i := 0; i < epochs; i++ {
+		for j := range in {
+			p := n.feedForward(in[j])
+			n.backPropagate(p, out[j], rate)
+		}
+	}
 }
 
 // Predict predicts the output for the given input
@@ -176,11 +192,31 @@ func (n *network) Save(path string) {
 	}
 }
 
+// SetOption sets the given option for the network
+func (n *network) SetOption(key int32, value interface{}) {
+	if value == nil {
+		log.Fatal("SetOption error: value cannot be nil")
+	}
+	n.options[key] = value
+}
+
+// Option returns the value of the given option
+func (n *network) Option(key int32) interface{} {
+	if _, ok := n.options[key]; !ok {
+		log.Fatalf("Option error: option %d does not exist", key)
+	}
+	return n.options[key]
+}
+
 // NewNetwork creates a new neural network with the given number of inputs and layers
-func NewNetwork(af string, in int, layers ...int) *network {
+func NewNetwork(in int, layers ...int) *network {
 	n := network{
-		activationFunction: af,
-		layers:             make([]*layer, len(layers)),
+		options: map[int32]interface{}{
+			OptionActivationFunction: ReluFunction,
+			OptionRandomizeWeights:   true,
+			OptionRandomizeBias:      false,
+		},
+		layers: make([]*layer, len(layers)),
 	}
 	s := in
 
@@ -191,10 +227,10 @@ func NewNetwork(af string, in int, layers ...int) *network {
 		for j := range n.layers[i].neurons {
 			n.layers[i].neurons[j] = &neuron{
 				synapses: make([]*synapse, s),
-				bias:     &synapse{weight: 1.0},
+				bias:     newSynapse(n.Option(OptionRandomizeBias).(bool)),
 			}
 			for k := range n.layers[i].neurons[j].synapses {
-				n.layers[i].neurons[j].synapses[k] = &synapse{weight: 1.0}
+				n.layers[i].neurons[j].synapses[k] = newSynapse(n.Option(OptionRandomizeWeights).(bool))
 			}
 		}
 		s = layers[i]
